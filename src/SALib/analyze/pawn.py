@@ -50,7 +50,9 @@ def analyze(
     Compatible with:
         all samplers
 
-    This implementation ignores all NaNs.
+    NaN outputs are omitted from both unconditional and conditional output
+    distributions. Conditioning quantiles are still computed from the input
+    samples, ignoring NaN inputs. At least one non-NaN output is required.
 
     When applied to grouped factors, the analysis is conducted on each factor
     individually, and the mean of their results are reported.
@@ -109,6 +111,10 @@ def analyze(
     D = problem["num_vars"]
     var_names, _ = extract_group_names(problem)
 
+    Y_valid = Y[~np.isnan(Y)]
+    if len(Y_valid) == 0:
+        raise ValueError("PAWN requires at least one non-NaN output.")
+
     results = np.full((D, 6), np.nan)
     temp_pawn = np.full((S, D), np.nan)
 
@@ -120,8 +126,9 @@ def analyze(
 
         for s in range(S):
             Y_sel = Y[(X_di >= X_q[s]) & (X_di < X_q[s + 1])]
+            Y_sel = Y_sel[~np.isnan(Y_sel)]
             if len(Y_sel) == 0:
-                # no available samples
+                # no observed outputs in this conditioning interval
                 continue
 
             # KD value
@@ -131,7 +138,7 @@ def analyze(
             # if the K-S statistic is small or the p-value is high, then
             # we cannot reject the hypothesis that the distributions of
             # the two samples are the same.
-            ks = ks_2samp(Y_sel, Y)
+            ks = ks_2samp(Y_sel, Y_valid)
             temp_pawn[s, d_i] = ks.statistic
 
         p_ind = temp_pawn[:, d_i]
