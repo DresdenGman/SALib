@@ -50,9 +50,7 @@ def analyze(
     Compatible with:
         all samplers
 
-    NaN outputs are omitted from both unconditional and conditional output
-    distributions. Conditioning quantiles are still computed from the input
-    samples, ignoring NaN inputs. At least one non-NaN output is required.
+    This implementation ignores all NaNs.
 
     When applied to grouped factors, the analysis is conducted on each factor
     individually, and the mean of their results are reported.
@@ -72,7 +70,10 @@ def analyze(
     X : numpy.array
         A NumPy array containing the model inputs
     Y : numpy.array
-        A NumPy array containing the model outputs
+        A NumPy array containing the model outputs. NaN outputs are omitted
+        from both unconditional and conditional output distributions. Input
+        conditioning quantiles are preserved. At least one non-NaN output
+        is required.
     S : int
         Number of slides; the conditioning intervals (default 10)
     print_to_console : bool
@@ -126,9 +127,8 @@ def analyze(
 
         for s in range(S):
             Y_sel = Y[(X_di >= X_q[s]) & (X_di < X_q[s + 1])]
-            Y_sel = Y_sel[~np.isnan(Y_sel)]
             if len(Y_sel) == 0:
-                # no observed outputs in this conditioning interval
+                # no available samples
                 continue
 
             # KD value
@@ -138,6 +138,10 @@ def analyze(
             # if the K-S statistic is small or the p-value is high, then
             # we cannot reject the hypothesis that the distributions of
             # the two samples are the same.
+            Y_sel = Y_sel[~np.isnan(Y_sel)]
+            if len(Y_sel) == 0:
+                # no observed outputs in this conditioning interval
+                continue
             ks = ks_2samp(Y_sel, Y_valid)
             temp_pawn[s, d_i] = ks.statistic
 
