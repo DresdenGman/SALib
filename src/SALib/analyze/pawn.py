@@ -52,6 +52,10 @@ def analyze(
 
     This implementation ignores all NaNs.
 
+    Conditioning intervals include their lower boundary and exclude their
+    upper boundary, except for the final interval, which includes the maximum
+    input value. ``CV`` is undefined (NaN) when all interval distances are zero.
+
     When applied to grouped factors, the analysis is conducted on each factor
     individually, and the mean of their results are reported.
 
@@ -112,14 +116,14 @@ def analyze(
     results = np.full((D, 6), np.nan)
     temp_pawn = np.full((S, D), np.nan)
 
-    step = 1 / S
     for d_i in range(D):
-        seq = np.arange(0, 1 + step, step)
+        seq = np.linspace(0, 1, S + 1)
         X_di = X[:, d_i]
         X_q = np.nanquantile(X_di, seq)
 
         for s in range(S):
-            Y_sel = Y[(X_di >= X_q[s]) & (X_di < X_q[s + 1])]
+            upper = X_di <= X_q[s + 1] if s == S - 1 else X_di < X_q[s + 1]
+            Y_sel = Y[(X_di >= X_q[s]) & upper]
             if len(Y_sel) == 0:
                 # no available samples
                 continue
@@ -140,7 +144,7 @@ def analyze(
         med = np.nanmedian(p_ind)
         maxs = np.nanmax(p_ind)
         stdev = np.nanstd(p_ind)
-        cv = np.nanstd(p_ind) / mean
+        cv = stdev / mean if mean != 0 else np.nan
         results[d_i, :] = [mins, mean, med, maxs, cv, stdev]
 
     groups = _check_groups(problem)
