@@ -15,6 +15,11 @@ def analyze(
     where each entry is a list of size D (the number of parameters) containing
     the indices in the same order as the parameter file.
 
+    ``dgsm_conf`` is the bootstrap confidence half-width of the normalized
+    ``dgsm`` measure. Each resample recomputes both the mean squared derivative
+    and the model-output variance. A resample with zero output variance makes
+    the normalized measure, and therefore its confidence interval, undefined.
+
 
     Notes
     -----
@@ -136,7 +141,13 @@ def calc_dgsm(base, perturbed, x_delta, bounds, num_resamples, conf_level):
     r = np.random.randint(len_base, size=(num_resamples, len_base))
     for i in range(num_resamples):
         r_i = r[i]
-        s[i] = calc_vi_mean(base[r_i], perturbed[r_i], x_delta[r_i])
+        vi_resampled = calc_vi_mean(base[r_i], perturbed[r_i], x_delta[r_i])
+        variance_resampled = np.var(base[r_i])
+        s[i] = (
+            vi_resampled
+            * (bounds[1] - bounds[0]) ** 2
+            / (variance_resampled * np.pi**2)
+        )
 
     return dgsm, norm.ppf(0.5 + conf_level / 2.0) * s.std(ddof=1)
 
